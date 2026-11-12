@@ -385,6 +385,10 @@ details.more .in{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10
   .cbar .c1 span{display:block;font-size:11.5px;color:rgba(251,250,249,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cbar .c1 b{display:block;font:700 19px var(--head);font-variant-numeric:tabular-nums}
   .cbar .c1.bad span{color:#FF9B91}.cbar .c1.ok span{color:#8ED6AC}}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:6px;border:1px solid var(--navy-2);border-radius:50%;background:none;color:var(--navy-2);font:700 11px/1 var(--head);text-transform:none;letter-spacing:0;cursor:pointer;vertical-align:1px;padding:0}
+.ib:hover,.ib[aria-expanded="true"]{background:var(--navy-2);color:var(--bg)}
+.infobox{background:var(--info-bg);border-left:3px solid var(--navy-2);padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--fg)}
+.infobox a{display:inline-block;margin-top:4px;font-weight:600;color:var(--navy)}
 </style>
 <template id="ui">
 <header class="band">
@@ -444,7 +448,7 @@ details.more .in{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10
         </div>
         <div class="sec-t">Simulador da Caixa</div>
         <div class="grid">
-          <div class="f req"><label for="financ">Financiamento aprovado</label><div class="money"><input id="financ" inputmode="decimal" data-money placeholder="0,00"></div></div>
+          <div class="f req"><label for="financ">Financiamento aprovado <button type="button" class="ib" data-info="infoFin" aria-label="Como simular o financiamento na Caixa" aria-expanded="false">i</button></label><div class="money"><input id="financ" inputmode="decimal" data-money placeholder="0,00"></div><div class="infobox" id="infoFin" hidden>Ainda não fez a simulação? Faça no site da Caixa e volte aqui com o valor do financiamento. <a href="https://simuladorhabitacao.caixa.gov.br/simulacao" target="_blank" rel="noopener">Abrir o simulador da Caixa</a></div></div>
           <div class="f"><label for="pcaixa">Parcela da Caixa</label><div class="money"><input id="pcaixa" inputmode="decimal" data-money placeholder="0,00"></div><span class="hint">Só para registro; não entra no parcelamento Girollar</span></div>
           <div class="f"><label for="subsidio">Subsídio</label><div class="money"><input id="subsidio" inputmode="decimal" data-money placeholder="0,00"></div><span class="hint">Só se enquadrar na Faixa 2 do MCMV</span></div>
           <div class="f"><label for="fgts">FGTS</label><div class="money"><input id="fgts" inputmode="decimal" data-money placeholder="0,00"></div><span class="hint">Se o cliente for usar</span></div>
@@ -536,7 +540,7 @@ details.more .in{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10
       <div class="grid">
         <div class="f"><label for="c_tabela">Valor de tabela</label><div class="money"><input id="c_tabela" inputmode="decimal" data-cmoney placeholder="0,00"></div></div>
         <div class="f"><label for="c_avaliacao">Valor de avaliação</label><div class="money"><input id="c_avaliacao" inputmode="decimal" data-cmoney placeholder="0,00"></div><span class="hint">Em branco, vale o valor de tabela</span></div>
-        <div class="f"><label for="c_financ">Financiamento</label><div class="money"><input id="c_financ" inputmode="decimal" data-cmoney placeholder="0,00"></div></div>
+        <div class="f"><label for="c_financ">Financiamento <button type="button" class="ib" data-info="infoFinC" aria-label="Como simular o financiamento na Caixa" aria-expanded="false">i</button></label><div class="money"><input id="c_financ" inputmode="decimal" data-cmoney placeholder="0,00"></div><div class="infobox" id="infoFinC" hidden>Ainda não fez a simulação? Faça no site da Caixa e volte aqui com o valor do financiamento. <a href="https://simuladorhabitacao.caixa.gov.br/simulacao" target="_blank" rel="noopener">Abrir o simulador da Caixa</a></div></div>
         <div class="f"><label for="c_fgts">FGTS</label><div class="money"><input id="c_fgts" inputmode="decimal" data-cmoney placeholder="0,00"></div></div>
         <div class="f"><label for="c_sinal">Sinal</label><div class="money"><input id="c_sinal" inputmode="decimal" data-cmoney placeholder="0,00"></div><span class="hint" id="c_sinalHint"></span></div>
         <div class="f"><label for="c_renda">Renda bruta familiar</label><div class="money"><input id="c_renda" inputmode="decimal" data-cmoney placeholder="0,00"></div><span class="hint">Opcional. Serve para o reforço sugerido e a regra sem avalista</span></div>
@@ -1081,6 +1085,7 @@ $("cBarInfo").onclick=()=>$("cRes").scrollIntoView({behavior:"smooth",block:"sta
 document.querySelectorAll("[data-cmoney]").forEach(i=>i.addEventListener("blur",()=>{i.value=i.value.trim()===""?"":num(parseMoney(i.value))}));
 document.querySelectorAll("#modes button").forEach(b=>b.onclick=()=>{if(b.dataset.mode==="calc"){showView("calc");cRender()}else showSim()});
 
+document.addEventListener("click",ev=>{const b=ev.target.closest("[data-info]");if(!b)return;const bx=$(b.dataset.info);bx.hidden=!bx.hidden;b.setAttribute("aria-expanded",!bx.hidden)});
 /* início */
 fillEmp();
 const st=loadDraft();if(st===null)writeState(blank());
