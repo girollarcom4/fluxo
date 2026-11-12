@@ -101,6 +101,7 @@ header .ttl span{font-size:12px;opacity:.75}
 .extras{display:flex;flex-direction:column;gap:8px}
 .extra{display:grid;grid-template-columns:minmax(0,2fr) 160px 150px 38px;gap:8px;align-items:center}
 @media (max-width:600px){.extra{grid-template-columns:1fr 1fr}.extra>:first-child{grid-column:1/-1}.extra .x{justify-self:end;grid-column:2}}
+.extra .money input{padding-left:38px}
 .extra input{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:10px 11px;font-size:14px}
 
 .nav{display:flex;gap:10px;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:16px;margin-top:2px}
@@ -313,6 +314,7 @@ header .ttl span{font-size:12px;color:rgba(251,250,249,.6);opacity:1}
 .facts div{padding:14px 20px;background:var(--surface);border:0}
 .facts div:nth-child(5):last-child{grid-column:span 2}
 .facts div:nth-child(7):last-child{grid-column:span 3}
+.facts div:nth-child(8):last-child{grid-column:span 2}
 .facts span{font-size:9.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px}
 .facts b{font:700 15px var(--head)}
 .phase{padding:20px 22px}
@@ -640,6 +642,8 @@ function compute(s){
   if(s.sinal>0)sched.push({date:dS,kind:"sinal",label:"Sinal",valor:s.sinal});
   for(let i=0;i<s.nMensais;i++)sched.push({date:addMonths(dM,i,dM.getDate()),kind:"mensal",valor:mensal});
   for(let i=0;i<s.nRef;i++)sched.push({date:addMonths(dR,12*i,dR.getDate()),kind:"reforco",valor:s.vRef});
+  const exs=(s.extras||[]).map(x=>({desc:x.desc||"Outro vencimento",date:pd(x.data),valor:parseMoney(x.valor)})).filter(x=>x.valor>0);const exTotal=exs.reduce((a,x)=>a+x.valor,0);
+  exs.filter(x=>x.date).forEach(x=>sched.push({date:x.date,kind:"extra",valor:x.valor}));
   const after=x=>entrega&&x.date>entrega;
   const mens=sched.filter(x=>x.kind==="mensal"),refs=sched.filter(x=>x.kind==="reforco");
   const mPos=mens.filter(after),rPos=refs.filter(after);
@@ -647,8 +651,9 @@ function compute(s){
   // projeção teórica só das parcelas Girollar (valores de hoje, sem correção)
   const rows=[];const endObra=entrega?ym(entrega):null;
   const pays=sched.filter(x=>x.kind!=="sinal");const months=[...new Set(pays.map(x=>ym(x.date)))].sort((a,b)=>a-b);
-  months.forEach(m=>{const inM=pays.filter(x=>ym(x.date)===m);const ent=inM.filter(x=>x.kind==="mensal").reduce((a,x)=>a+x.valor,0),ref=inM.filter(x=>x.kind==="reforco").reduce((a,x)=>a+x.valor,0);
-    rows.push({d:inM[0].date,m,ent,ref,tot:ent+ref,pos:endObra!=null&&inM[0].date>entrega,keys:false})});
+  months.forEach(m=>{const inM=pays.filter(x=>ym(x.date)===m);const ent=inM.filter(x=>x.kind==="mensal").reduce((a,x)=>a+x.valor,0),ref=inM.filter(x=>x.kind==="reforco").reduce((a,x)=>a+x.valor,0),out=inM.filter(x=>x.kind==="extra").reduce((a,x)=>a+x.valor,0);
+    rows.push({d:inM[0].date,m,ent,ref,out,tot:ent+ref+out,pos:endObra!=null&&inM[0].date>entrega,keys:false})});
+  const und=exs.filter(x=>!x.date).reduce((a,x)=>a+x.valor,0);if(und>0)rows.push({d:null,m:1e9,ent:0,ref:0,out:und,tot:und,pos:false,keys:false});
   const firstPos=rows.find(x=>x.pos);if(firstPos)firstPos.keys=true;
   // alertas com sugestão de ajuste
   const al=[];const maxM=s.avalista?e.maxMensais:Math.min(36,e.maxMensais);
@@ -661,7 +666,7 @@ function compute(s){
   if(!s.avalista&&s.renda>0&&mensal>s.renda*.3)al.push({st:"bad",t:"Mensal acima de 30% da renda",d:`Sem avalista a mensal pode ser até ${brl(s.renda*.3)}.`,fix:"Aumente o sinal ou os reforços, ou inclua um avalista."});
   if(unitGone&&!s.calc)al.push({st:"bad",t:"Unidade fora da tabela",d:`A unidade ${unitGone} não está mais disponível na tabela atual.`,fix:"Escolha outra unidade na etapa 2."});
   const bad=al.some(a=>a.st==="bad");
-  return{e,docVal,dif,finSub,entrada,totRef,mensal,parcTotal,pro,proR,mPos,rPos,mens,refs,rows,entrega,dS,dM,dR,al,bad,maxM};
+  return{exs,exTotal,e,docVal,dif,finSub,entrada,totRef,mensal,parcTotal,pro,proR,mPos,rPos,mens,refs,rows,entrega,dS,dM,dR,al,bad,maxM};
 }
 function filled(s){return s.tabela>0&&s.avaliacao>0&&s.financ>0}
 
@@ -700,7 +705,7 @@ function renderLive(s,r){
   else{
     const lim=r.e.risco,w=Math.min(100,r.parcTotal/(lim*1.4)*100),mk=100/1.4;
     h+=`<div class="big"><span>Mensal com a Girollar</span><b>${brl(r.mensal)}</b><small>${s.nMensais}x a partir de ${fmtD(r.dM)}</small></div>
-    <div class="rows"><span>Entrada a parcelar</span><span>${brl(r.entrada)}</span><span>Sinal</span><span>${brl(s.sinal)}</span><span>Reforços</span><span>${s.nRef}× ${brl0(s.vRef)}</span><span>Documentação</span><span><span class="docbadge ${docParc?"in":"out"}">${docParc?"Inclusa":"Sem"}</span></span></div>
+    <div class="rows"><span>Entrada a parcelar</span><span>${brl(r.entrada)}</span><span>Sinal</span><span>${brl(s.sinal)}</span><span>Reforços</span><span>${s.nRef?s.nRef+"× "+brl0(s.vRef):"nenhum"}</span><span>Documentação</span><span><span class="docbadge ${docParc?"in":"out"}">${docParc?"Inclusa":"Sem"}</span></span>${r.exTotal>0?`<span>Outros vencimentos</span><span>${brl(r.exTotal)}</span>`:""}</div>
     <div class="meter ${r.parcTotal>lim?"bad":""}" style="padding-top:12px"><div class="t"><span>Parcelamento total <b style="color:var(--fg)">${pct(r.parcTotal)}</b></span><span>limite ${pct(lim,0)}</span></div><div class="track"><i style="width:${w}%"></i><u style="left:${mk}%"></u></div></div>
     <div class="alerts" style="padding-top:0">${r.al.length?r.al.map(a=>`<div class="alert ${a.st}"><b>${esc(a.t)}</b>${esc(a.d)}<span class="fix">→ ${esc(a.fix)}</span></div>`).join(""):`<div class="alert ok"><b>Tudo dentro das regras</b>Pode seguir para a revisão.</div>`}</div></div>`}
   $("live").innerHTML=h;
@@ -719,24 +724,25 @@ function renderReview(s,r){
   const e=r.e,mObra=r.mens.length-r.mPos.length,rObra=r.refs.length-r.rPos.length;
   const docTag=`<span class="docbadge ${r.docVal?"in":"out"}">${r.docVal?"Documentação inclusa":"Sem documentação"}</span>`;
   $("proposal").innerHTML=`<div class="prop-h"><div><small>Cliente</small><b>${esc(s.cliente||"—")}</b></div>${docTag}<div class="r"><small>${esc(e.nome)}</small><b>${esc(s.unidade||"Unidade a definir")}</b></div></div>
-  <div class="facts"><div><span>Valor de tabela</span><b>${brl0(s.tabela)}</b></div><div><span>Documentação</span><b>${r.docVal?brl0(r.docVal):"Sem"}</b></div>${r.docVal?`<div><span>Total com documentação</span><b>${brl0(s.tabela+r.docVal)}</b></div>`:""}<div><span>Financiamento Caixa</span><b>${brl0(r.finSub)}</b></div>${s.fgts?`<div><span>FGTS</span><b>${brl0(s.fgts)}</b></div>`:""}<div><span>Entrada com a Girollar</span><b>${brl0(r.entrada+s.sinal)}</b></div><div><span>Entrega das chaves</span><b>${fmtD(r.entrega)}</b></div></div>
+  <div class="facts"><div><span>Valor de tabela</span><b>${brl0(s.tabela)}</b></div><div><span>Documentação</span><b>${r.docVal?brl0(r.docVal):"Sem"}</b></div>${r.docVal?`<div><span>Total com documentação</span><b>${brl0(s.tabela+r.docVal)}</b></div>`:""}<div><span>Financiamento Caixa</span><b>${brl0(r.finSub)}</b></div>${s.fgts?`<div><span>FGTS</span><b>${brl0(s.fgts)}</b></div>`:""}<div><span>Entrada com a Girollar</span><b>${brl0(r.entrada+s.sinal)}</b></div>${r.exTotal>0?`<div><span>Outros vencimentos</span><b>${brl0(r.exTotal)}</b></div>`:""}<div><span>Entrega das chaves</span><b>${fmtD(r.entrega)}</b></div></div>
   <div class="phases">
    <div class="phase"><span class="when">Na assinatura</span><h3>Sinal</h3><div class="main">${brl(s.sinal)}</div><ul><li><span>Documentação</span><span>${r.docVal?"inclusa ("+brl0(r.docVal)+")":"sem, paga à vista"}</span></li></ul></div>
    <div class="phase"><span class="when">Até as chaves · CUB + 0,5%</span><h3>Mensal Girollar</h3><div class="main">${mObra?brl(r.mensal):brl(0)}<small>${mObra?`${mObra} mensais, até ${fmtD(r.entrega)}`:"nenhuma mensal antes das chaves"}</small></div><ul>${rObra?`<li><span>${rObra} reforço${rObra>1?"s":""} ${rObra>1?"anuais":"anual"}</span><span>${brl(s.vRef)}</span></li>`:`<li><span>Reforços</span><span>nenhum</span></li>`}</ul></div>
    <div class="phase"><span class="when">Depois das chaves · IPCA + 1,5%</span><h3>Mensal Girollar</h3><div class="main">${r.mPos.length?brl(r.mensal):brl(0)}<small>${r.mPos.length?`${r.mPos.length} mensais restantes`:"parcelamento quitado até as chaves"}</small></div><ul>${r.rPos.length?`<li><span>${r.rPos.length} reforço${r.rPos.length>1?"s":""} restante${r.rPos.length>1?"s":""}</span><span>${brl(s.vRef)}</span></li>`:""}<li><span>Pró-soluto</span><span>${pct(r.pro)} da tabela</span></li></ul></div>
   </div>
-  <div class="prop-f">${s.avalista?"Com avalista":"Sem avalista"} · Correção pelo CUB + 0,5% ao mês (Sinduscon SC) até as chaves; depois das chaves (pró-soluto), IPCA + 1,5% ao mês. <b>Valores teóricos</b>, de hoje e sem correção: podem haver divergências em relação ao contrato.${tabRef(s)?" Origem dos preços: "+esc(tabRef(s))+".":""}${extras.filter(x=>x.data).length?"<br>"+extras.filter(x=>x.data).map(x=>esc((x.desc||"Vencimento")+": "+fmtD(pd(x.data))+(parseMoney(x.valor)?" · "+brl(parseMoney(x.valor)):""))).join(" · "):""}</div>`;
+  <div class="prop-f">${s.avalista?"Com avalista":"Sem avalista"} · Correção pelo CUB + 0,5% ao mês (Sinduscon SC) até as chaves; depois das chaves (pró-soluto), IPCA + 1,5% ao mês. <b>Valores teóricos</b>, de hoje e sem correção: podem haver divergências em relação ao contrato.${tabRef(s)?" Origem dos preços: "+esc(tabRef(s))+".":""}${extras.filter(x=>x.data||parseMoney(x.valor)).length?"<br>"+extras.filter(x=>x.data||parseMoney(x.valor)).map(x=>esc((x.desc||"Vencimento")+": "+fmtD(pd(x.data))+(parseMoney(x.valor)?" · "+brl(parseMoney(x.valor)):""))).join(" · "):""}</div>`;
   // tabela
-  let h=`<thead><tr><th>Parcela</th><th class="l">Vencimento</th><th>Mensal</th><th>Reforço</th><th>Total</th></tr></thead><tbody>`;
-  if(s.sinal>0)h+=`<tr class="sinal"><td>Sinal</td><td class="l">Na assinatura</td><td class="z">—</td><td class="z">—</td><td>${brl(s.sinal)}</td></tr>`;
-  let n=0,T={ent:0,ref:0,tot:s.sinal};const c=v=>v?`<td>${brl(v)}</td>`:`<td class="z">—</td>`;
-  r.rows.forEach(x=>{n++;T.ent+=x.ent;T.ref+=x.ref;T.tot+=x.tot;h+=`<tr${x.keys?' class="keys"':""}><td>${n}</td><td class="l">${fmtD(x.d)}${x.keys?'<span class="tag">Após chaves</span>':""}</td>${c(x.ent)}${c(x.ref)}<td><b>${brl(x.tot)}</b></td></tr>`});
-  h+=`<tr class="tot"><td>Total</td><td class="l">${n} meses</td><td>${brl(T.ent)}</td><td>${brl(T.ref)}</td><td>${brl(T.tot)}</td></tr></tbody>`;
+  let h=`<thead><tr><th>Parcela</th><th class="l">Vencimento</th><th>Mensal</th><th>Reforço</th><th>Outros</th><th>Total</th></tr></thead><tbody>`;
+  if(s.sinal>0)h+=`<tr class="sinal"><td>Sinal</td><td class="l">Na assinatura</td><td class="z">—</td><td class="z">—</td><td class="z">—</td><td>${brl(s.sinal)}</td></tr>`;
+  let n=0,T={ent:0,ref:0,out:0,tot:s.sinal};const c=v=>v?`<td>${brl(v)}</td>`:`<td class="z">—</td>`;
+  r.rows.forEach(x=>{n++;T.ent+=x.ent;T.ref+=x.ref;T.out+=x.out||0;T.tot+=x.tot;h+=`<tr${x.keys?' class="keys"':""}><td>${n}</td><td class="l">${fmtD(x.d)}${x.keys?'<span class="tag">Após chaves</span>':""}</td>${c(x.ent)}${c(x.ref)}${c(x.out)}<td><b>${brl(x.tot)}</b></td></tr>`});
+  h+=`<tr class="tot"><td>Total</td><td class="l">${n} meses</td><td>${brl(T.ent)}</td><td>${brl(T.ref)}</td><td>${T.out?brl(T.out):"—"}</td><td>${brl(T.tot)}</td></tr></tbody>`;
   $("proj").innerHTML=h;
   $("btnWa").href="https://wa.me/?text="+encodeURIComponent(summary());
 }
 function summary(){if(!last)return"";const{s,r}=last;const L=[`*Simulação de fluxo – Girollar*`,``,`Cliente: ${s.cliente||"—"}`,`Renda familiar: ${brl(s.renda)}`,`Corretor: ${[s.corretor,s.imob].filter(Boolean).join(" – ")||"—"}`,`Imóvel: ${r.e.nome}${s.unidade?" · "+s.unidade:""}`,`Garantia: ${s.avalista?"com avalista":"sem avalista"}`,``,tabRef(s)?`Origem dos preços: ${tabRef(s)}`:null,`Tabela: ${brl(s.tabela)}`,`Avaliação: ${brl(s.avaliacao)}`,`Financiamento: ${brl(s.financ)}${s.subsidio?" + subsídio "+brl(s.subsidio):""}`,s.fgts?`FGTS: ${brl(s.fgts)}`:null,s.pcaixa?`Parcela Caixa (simulador): ${brl(s.pcaixa)}`:null,``,`*Documentação: ${r.docVal?"INCLUSA no parcelamento ("+brl(r.docVal)+")":"SEM documentação (cliente paga à vista)"}*`,r.docVal?`Total com documentação: ${brl(s.tabela+r.docVal)}`:null,``,`*Parcelamento Girollar*`,`Sinal: ${brl(s.sinal)}`,`Entrada a parcelar: ${brl(r.entrada)}`,`Mensais: ${s.nMensais}× ${brl(r.mensal)} a partir de ${fmtD(r.dM)}`,s.nRef?`Reforços: ${s.nRef}× ${brl(s.vRef)} a partir de ${fmtD(r.dR)}`:`Reforços: nenhum`].filter(x=>x!==null);
-  extras.filter(x=>x.data).forEach(x=>L.push(`${x.desc||"Vencimento"}: ${fmtD(pd(x.data))}${parseMoney(x.valor)?" · "+brl(parseMoney(x.valor)):""}`));
+  extras.filter(x=>x.data||parseMoney(x.valor)).forEach(x=>L.push(`${x.desc||"Vencimento"}: ${fmtD(pd(x.data))}${parseMoney(x.valor)?" · "+brl(parseMoney(x.valor)):""}`));
+  if(r.exTotal>0)L.push(`Total de outros vencimentos: ${brl(r.exTotal)}`);
   L.push(``,`Parcelamento total: ${pct(r.parcTotal)} (limite ${pct(r.e.risco,0)})`,`Pró-soluto: ${pct(r.pro)}`,r.bad?`⚠ Fora das regras: ${r.al.map(a=>a.t).join("; ")}`:`✓ Dentro das regras da obra`,``,`_Correção: CUB + 0,5% ao mês (Sinduscon SC) até as chaves; depois, IPCA + 1,5% ao mês. Valores teóricos, sem correção; podem haver divergências._`);
   if(s.obs.trim())L.push(``,`Observações: ${s.obs.trim()}`);return L.join("\n")}
 
@@ -774,6 +780,7 @@ $("simView").addEventListener("input",ev=>{if(ev.target.closest("#extras"))retur
 $("simView").addEventListener("change",ev=>{if(ev.target.id==="emp"||ev.target.type==="date")render()});
 function renderExtras(){$("extras").innerHTML=extras.map((x,i)=>`<div class="extra"><input aria-label="Descrição" data-i="${i}" data-k="desc" value="${esc(x.desc)}" placeholder="Descrição (ex.: ITBI)"><input aria-label="Data" type="date" data-i="${i}" data-k="data" value="${esc(x.data)}"><div class="money"><input aria-label="Valor" inputmode="decimal" data-i="${i}" data-k="valor" value="${esc(x.valor)}" placeholder="Valor"></div><button type="button" class="x" data-del="${i}" aria-label="Remover vencimento">×</button></div>`).join("")}
 $("extras").addEventListener("input",ev=>{const t=ev.target;if(t.dataset.i==null)return;extras[+t.dataset.i][t.dataset.k]=t.value;render()});
+$("extras").addEventListener("focusout",ev=>{const t=ev.target;if(t.dataset.k!=="valor")return;const v=parseMoney(t.value);t.value=v?num(v):"";extras[+t.dataset.i].valor=t.value;render()});
 $("extras").addEventListener("click",ev=>{const i=ev.target.dataset.del;if(i==null)return;extras.splice(+i,1);renderExtras();render()});
 $("addExtra").onclick=()=>{extras.push({desc:"",data:"",valor:""});renderExtras();const ins=$("extras").querySelectorAll('input[data-k="desc"]');ins[ins.length-1].focus()};
 $("btnCopy").onclick=async()=>{const t=summary();try{await navigator.clipboard.writeText(t);toast("Resumo copiado. Cole na conversa com a Girollar.")}catch(e){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Resumo copiado")}catch(_){toast("Não deu para copiar")}ta.remove()}};
@@ -808,16 +815,16 @@ async function buildPdf(){
   doc.setTextColor(...NAVY);doc.setFontSize(12);doc.text("Parcelas com a Girollar - projeção teórica",M,y);y+=2;
   const teo="Valores de hoje, sem correção. Correção pelo CUB + 0,5% ao mês (Sinduscon SC) até a entrega das chaves e por IPCA + 1,5% ao mês depois das chaves. Projeção teórica: podem haver divergências em relação aos valores do contrato.";
   doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(...MUT);const tl=doc.splitTextToSize(teo,W-2*M);doc.text(tl,M,y+4);y+=4+tl.length*3.8;
-  const body=[];if(s.sinal>0)body.push(["Sinal","Na assinatura","-","-",brl(s.sinal)]);
-  let n=0,T={ent:0,ref:0,tot:s.sinal};const keyIdx=[];
-  r.rows.forEach(x=>{n++;T.ent+=x.ent;T.ref+=x.ref;T.tot+=x.tot;if(x.keys)keyIdx.push(body.length);body.push([String(n),fmtD(x.d)+(x.keys?"  (após chaves)":""),x.ent?brl(x.ent):"-",x.ref?brl(x.ref):"-",brl(x.tot)])});
-  body.push(["Total",n+" meses",brl(T.ent),brl(T.ref),brl(T.tot)]);
-  doc.autoTable({startY:y,head:[["Parcela","Vencimento","Mensal","Reforço","Total"]],body:body.map(x=>x.map(pt)),theme:"striped",
+  const body=[];if(s.sinal>0)body.push(["Sinal","Na assinatura","-","-","-",brl(s.sinal)]);
+  let n=0,T={ent:0,ref:0,out:0,tot:s.sinal};const keyIdx=[];
+  r.rows.forEach(x=>{n++;T.ent+=x.ent;T.ref+=x.ref;T.out+=x.out||0;T.tot+=x.tot;if(x.keys)keyIdx.push(body.length);body.push([String(n),fmtD(x.d)+(x.keys?"  (após chaves)":""),x.ent?brl(x.ent):"-",x.ref?brl(x.ref):"-",x.out?brl(x.out):"-",brl(x.tot)])});
+  body.push(["Total",n+" meses",brl(T.ent),brl(T.ref),T.out?brl(T.out):"-",brl(T.tot)]);
+  doc.autoTable({startY:y,head:[["Parcela","Vencimento","Mensal","Reforço","Outros","Total"]],body:body.map(x=>x.map(pt)),theme:"striped",
     styles:{font:"helvetica",fontSize:8.5,cellPadding:1.6,textColor:INK},headStyles:{fillColor:NAVY,textColor:255,halign:"right"},
-    columnStyles:{0:{halign:"left"},1:{halign:"left"},2:{halign:"right"},3:{halign:"right"},4:{halign:"right",fontStyle:"bold"}},margin:{left:M,right:M,bottom:16},
+    columnStyles:{0:{halign:"left"},1:{halign:"left"},2:{halign:"right"},3:{halign:"right"},4:{halign:"right"},5:{halign:"right",fontStyle:"bold"}},margin:{left:M,right:M,bottom:16},
     didParseCell:d=>{if(d.section==="head"&&d.column.index<2)d.cell.styles.halign="left";if(d.section==="body"){if(keyIdx.includes(d.row.index))d.cell.styles.fillColor=[231,238,249];if(d.row.index===body.length-1){d.cell.styles.fontStyle="bold";d.cell.styles.fillColor=[238,240,244]}}}});
   y=doc.lastAutoTable.finalY+6;
-  const ex=extras.filter(x=>x.data);
+  const ex=extras.filter(x=>x.data||parseMoney(x.valor));
   if(ex.length){doc.autoTable({startY:y,head:[["Outros vencimentos","Data","Valor"]],body:ex.map(x=>[x.desc||"Vencimento",fmtD(pd(x.data)),parseMoney(x.valor)?brl(parseMoney(x.valor)):"-"].map(pt)),theme:"grid",
     styles:{font:"helvetica",fontSize:8.5,cellPadding:1.8,textColor:INK},headStyles:{fillColor:NAVY,textColor:255},columnStyles:{2:{halign:"right"}},margin:{left:M,right:M,bottom:16}});y=doc.lastAutoTable.finalY+6}
   if(s.obs.trim()){const ol=doc.splitTextToSize(pt(s.obs.trim()),W-2*M);if(y+8+ol.length*4.2>282){doc.addPage();y=20}
@@ -847,7 +854,7 @@ async function desenhaImg(){
   x.fillStyle="#F4F4F0";x.fillRect(M,y,W-2*M,176);x.fillStyle=RED;x.fillRect(M,y,6,176);
   txt("Mensal com a Girollar",M+30,y+46,"500",26,MUT);txt(brl(r.mensal)+"  ×  "+s.nMensais,M+30,y+114,"700",56,NAVY);txt("a partir de "+fmtD(r.dM),M+30,y+154,"400",25,MUT);y+=206;
   const lin=[["Valor de tabela",brl(s.tabela)],["Documentação",r.docVal?brl(r.docVal):"Sem, paga à vista"],r.docVal?["Total com documentação",brl(s.tabela+r.docVal)]:null,["Valor de avaliação",brl(s.avaliacao)],["Financiamento Caixa"+(s.subsidio?" + subsídio":""),brl(r.finSub)],s.fgts?["FGTS",brl(s.fgts)]:null,["Sinal",brl(s.sinal)],["Entrada a parcelar",brl(r.entrada)],["Reforços anuais",s.nRef?s.nRef+" × "+brl(s.vRef):"nenhum"],s.nRef?["1º reforço",fmtD(r.dR)]:null,["Parcelamento total",pct(r.parcTotal)+" (limite "+pct(e.risco,0)+")"],["Pró-soluto",pct(r.pro)+" da tabela"],["Entrega das chaves",fmtD(r.entrega)],["Renda familiar",brl(s.renda)],["Garantia",s.avalista?"Com avalista":"Sem avalista"],s.pcaixa?["Parcela Caixa (simulador)",brl(s.pcaixa)]:null].filter(Boolean);
-  extras.filter(q=>q.data).forEach(q=>lin.push([q.desc||"Vencimento",fmtD(pd(q.data))+(parseMoney(q.valor)?" · "+brl(parseMoney(q.valor)):"")]));
+  extras.filter(q=>q.data||parseMoney(q.valor)).forEach(q=>lin.push([q.desc||"Vencimento",fmtD(pd(q.data))+(parseMoney(q.valor)?" · "+brl(parseMoney(q.valor)):"")]));
   lin.forEach(l=>{txt(l[0],M,y+36,"400",27,MUT);txt(l[1],W-M,y+36,"600",28,INK,"right");x.strokeStyle=LIN;x.lineWidth=2;x.beginPath();x.moveTo(M,y+56);x.lineTo(W-M,y+56);x.stroke();y+=58});
   y+=42;y=bloco(r.bad?"Fora das regras: "+r.al.map(a=>a.t).join("; "):"Dentro das regras de "+e.nome,y,"600",28,r.bad?RED:"#1F8A4C",38)+10;
   if(s.obs.trim()){y=bloco("Observações",y+8,"600",28,NAVY,40);y=bloco(s.obs.trim(),y,"400",26,INK,37)+10}
