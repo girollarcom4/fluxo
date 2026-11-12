@@ -499,6 +499,7 @@ details.more .in{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10
           <p class="small muted" style="margin:0">A imagem leva o resumo da negociação para mandar à Girollar.</p>
           <div class="imgp" id="imgPronta" hidden></div>
           <details class="more"><summary>Outras formas de enviar</summary><div class="in">
+            <button class="btn navy" id="btnImgSave" type="button">Salvar como imagem</button>
             <button class="btn navy" id="btnPdf" type="button">Salvar em PDF</button>
             <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">Enviar como texto</a>
             <button class="btn" id="btnCopy" type="button">Copiar resumo</button>
@@ -872,6 +873,12 @@ $("btnImg").onclick=async()=>{
     p.hidden=false;p.scrollIntoView({behavior:"smooth",block:"center"});
     $("imgSalvar").onclick=async()=>{try{if(dl)await dl.save({filename:nome,data:blob});else{const a=document.createElement("a");a.href=cv.toDataURL("image/png");a.download=nome;a.click()}toast("Imagem salva")}catch(err){if(err&&err.code!=="declined")toast("Não foi possível salvar a imagem")}};
   }catch(err){toast("Não foi possível gerar a imagem")}finally{b.disabled=false;b.textContent=old}};
+$("btnImgSave").onclick=async()=>{
+  if(!last||!filled(last.s)){toast("Preencha tabela, avaliação e financiamento antes");return}
+  const b=$("btnImgSave"),old=b.textContent;b.disabled=true;b.textContent="Gerando imagem…";
+  try{const cv=await desenhaImg(),blob=await new Promise(ok=>cv.toBlob(ok,"image/png")),nome=nomeArq("png");
+    if(dl)await dl.save({filename:nome,data:blob});else{const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+    toast("Imagem salva")}catch(err){if(!(err&&err.code==="declined"))toast("Não foi possível salvar a imagem")}finally{b.disabled=false;b.textContent=old}};
 $("btnPdf").onclick=async()=>{
   if(!last||!filled(last.s)){toast("Preencha tabela, avaliação e financiamento antes");return}
   const b=$("btnPdf"),old=b.textContent;b.disabled=true;b.textContent="Gerando PDF…";
