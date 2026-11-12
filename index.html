@@ -371,6 +371,20 @@ details.more .in{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10
   .facts div{padding:12px 14px}
   .facts div:nth-child(5):last-child,.facts div:nth-child(7):last-child{grid-column:span 2}
 }
+.modes{display:flex;margin:24px 0 0;border:1px solid var(--field);width:max-content;max-width:100%}
+.modes button{border:0;background:none;color:var(--muted);font:700 11px var(--head);letter-spacing:1.6px;text-transform:uppercase;padding:13px 22px;cursor:pointer;border-radius:0}
+.modes button[aria-pressed="true"]{background:var(--band);color:#fff}
+.cgrid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:34px;align-items:start;padding:22px 0 60px}
+.cform{display:flex;flex-direction:column;gap:18px}
+.cres{position:sticky;top:14px}
+.cres .go{padding:0 16px 16px;display:flex;flex-direction:column;gap:8px}
+.cbar{display:none}
+@media (max-width:940px){.cgrid{grid-template-columns:1fr;padding-bottom:110px}.cres{position:static}
+  .cbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--band);color:#fff;align-items:center;gap:12px;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+  .cbar .c1{flex:1;min-width:0;line-height:1.25;border:0;background:none;color:inherit;font:inherit;text-align:left;padding:0;cursor:pointer}
+  .cbar .c1 span{display:block;font-size:11.5px;color:rgba(251,250,249,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cbar .c1 b{display:block;font:700 19px var(--head);font-variant-numeric:tabular-nums}
+  .cbar .c1.bad span{color:#FF9B91}.cbar .c1.ok span{color:#8ED6AC}}
 </style>
 <template id="ui">
 <header class="band">
@@ -382,6 +396,8 @@ details.more .in{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10
     <button class="hbtn" id="hNovo" type="button">Nova simulação</button>
   </div>
 </header>
+
+<div class="wrap" id="modesWrap"><nav class="modes" id="modes" aria-label="Modo"><button type="button" data-mode="sim" aria-pressed="true">Simulação</button><button type="button" data-mode="calc" aria-pressed="false">Calculadora</button></nav></div>
 
 <main class="wrap" id="simView">
   <nav class="stepper" id="stepper" aria-label="Etapas">
@@ -508,6 +524,42 @@ details.more .in{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10
   <label class="drop" id="tabDrop" for="tabFile"><b>Arraste aqui as tabelas ou a pasta do Drive</b><span>Ou clique para escolher os arquivos. Pode ser PDF ou planilha, um por obra ou por bloco. Na pasta, entram só os arquivos com data no nome, como “Firenze 04-11”.</span></label><input id="tabFile" type="file" multiple accept=".pdf,.xlsx,.xls,.csv" hidden>
   <div id="tabPrev" style="margin-top:16px;display:flex;flex-direction:column;gap:14px"></div>
 </main>
+<main class="wrap" id="calcView" hidden>
+  <div class="cgrid">
+    <div class="cform">
+      <div class="pane-h"><span class="eye">Calculadora</span><h2>Simulação rápida</h2><p>Preencha só o essencial e veja a mensal na hora. Se der certo, use o botão para levar tudo para uma nova simulação.</p></div>
+      <div class="grid">
+        <div class="f"><label for="c_emp">Empreendimento</label><select id="c_emp"></select></div>
+        <div class="f" id="c_fBloco" hidden><label for="c_bloco">Bloco</label><select id="c_bloco"></select></div>
+        <div class="f" id="c_fUnid" hidden><label for="c_unid">Unidade disponível</label><select id="c_unid"></select></div>
+      </div>
+      <div class="grid">
+        <div class="f"><label for="c_tabela">Valor de tabela</label><div class="money"><input id="c_tabela" inputmode="decimal" data-cmoney placeholder="0,00"></div></div>
+        <div class="f"><label for="c_avaliacao">Valor de avaliação</label><div class="money"><input id="c_avaliacao" inputmode="decimal" data-cmoney placeholder="0,00"></div><span class="hint">Em branco, vale o valor de tabela</span></div>
+        <div class="f"><label for="c_financ">Financiamento</label><div class="money"><input id="c_financ" inputmode="decimal" data-cmoney placeholder="0,00"></div></div>
+        <div class="f"><label for="c_fgts">FGTS</label><div class="money"><input id="c_fgts" inputmode="decimal" data-cmoney placeholder="0,00"></div></div>
+        <div class="f"><label for="c_sinal">Sinal</label><div class="money"><input id="c_sinal" inputmode="decimal" data-cmoney placeholder="0,00"></div><span class="hint" id="c_sinalHint"></span></div>
+        <div class="f"><label for="c_renda">Renda bruta familiar</label><div class="money"><input id="c_renda" inputmode="decimal" data-cmoney placeholder="0,00"></div><span class="hint">Opcional. Serve para o reforço sugerido e a regra sem avalista</span></div>
+      </div>
+      <div class="choice">
+        <button type="button" data-cdoc="1" aria-pressed="true"><b>Com documentação</b><span>4% da tabela somado ao parcelamento.</span></button>
+        <button type="button" data-cdoc="0" aria-pressed="false"><b>Sem documentação</b><span>Cliente paga à vista, fora do parcelamento.</span></button>
+      </div>
+      <div class="choice">
+        <button type="button" data-cav="1" aria-pressed="true"><b>Com avalista</b><span id="c_avSub">Até o máximo da obra.</span></button>
+        <button type="button" data-cav="0" aria-pressed="false"><b>Sem avalista</b><span>Máximo de 36 mensais, de até 30% da renda.</span></button>
+      </div>
+      <div class="grid">
+        <div class="f"><label for="c_nMensais">Quantidade de mensais</label><div class="stp"><button type="button" data-cstp="c_nMensais" data-d="-1" aria-label="Menos uma mensal">−</button><input id="c_nMensais" type="number" min="1" step="1" inputmode="numeric" value="60"><button type="button" data-cstp="c_nMensais" data-d="1" aria-label="Mais uma mensal">+</button></div><div class="quick" id="c_quick"></div></div>
+        <div class="f"><label for="c_nRef">Quantidade de reforços</label><div class="stp"><button type="button" data-cstp="c_nRef" data-d="-1" aria-label="Menos um reforço">−</button><input id="c_nRef" type="number" min="0" step="1" inputmode="numeric" value="0"><button type="button" data-cstp="c_nRef" data-d="1" aria-label="Mais um reforço">+</button></div><span class="hint" id="c_refMax"></span></div>
+        <div class="f" id="c_fVRef" hidden><label for="c_vRef">Valor de cada reforço</label><div class="money"><input id="c_vRef" inputmode="decimal" data-cmoney placeholder="0,00"></div><span class="hint" id="c_vRefHint"></span></div>
+      </div>
+      <div class="chips" id="c_chips"></div>
+    </div>
+    <div class="cres" id="cRes"></div>
+  </div>
+  <div class="cbar"><button type="button" class="c1" id="cBarInfo"><span id="cBarLbl">Mensal</span><b id="cBarVal">—</b></button><button class="btn primary sm" type="button" id="cBarGo">Simular</button></div>
+</main>
 <div class="toast" id="toast" hidden></div>
 </template>
 <script type="application/json" id="tabelas">{"obras":{"firenze":{"blocos":{"Bloco I":{"d":"2026-11-11","u":[["102",349427,305000],["104",353443,305000],["105",358464,305000],["107",338382,305000],["203",326333,320000],["506",355953,327500],["601",358464,330000],["602",333361,310000],["606",358464,330000],["702",335871,312500],["705",335871,312500],["708",348723,332500],["802",348423,315000],["805",348423,315000],["902",350933,317500],["905",350933,317500],["1002",353443,320000],["1004",321312,320000],["1005",353443,320000],["1006",373525,340000],["1008",341394,340000],["1101",376035,342500],["1102",355953,322500],["1103",353443,342500],["1104",323822,322500],["1105",355953,322500],["1106",376035,342500],["1107",323822,322500],["1108",343904,342500],["1201",378546,345000],["1202",358464,325000],["1203",346415,345000],["1204",326333,325000],["1205",358464,325000],["1207",326333,325000],["1301",382060,347500],["1302",360974,327500],["1304",328843,327500],["1305",360974,327500],["1306",382060,347500],["1307",328843,327500],["1401",384570,350000],["1402",363484,330000],["1403",354447,350000],["1405",363484,330000],["1406",384570,350000],["1408",354447,350000]]},"Bloco II":{"d":"2026-11-11","u":[["102",363484,305000],["105",348423,305000],["106",366497,325000],["107",321312,305000],["201",321312,320000],["203",326333,320000],["407",316251,305000],["503",343904,327500],["504",318802,307500],["507",328843,307500],["508",353945,327500],["603",356456,330000],["604",331353,310000],["607",331353,310000],["608",356456,330000],["701",333863,332500],["703",358966,332500],["704",333863,312500],["706",333863,332500],["707",333863,312500],["708",358966,332500],["801",336374,335000],["806",336374,335000],["807",346415,315000],["808",361476,335000],["901",338884,337500],["902",318802,317500],["904",348925,317500],["906",338884,337500],["907",348925,317500],["908",363986,337500],["1001",341394,340000],["1002",321312,320000],["1003",371517,340000],["1004",351435,320000],["1005",321312,320000],["1006",341394,340000],["1007",351435,320000],["1008",371517,340000],["1101",343904,342500],["1102",323822,322500],["1103",374027,342500],["1104",353945,322500],["1105",323822,322500],["1106",343904,342500],["1107",353945,322500],["1108",374027,342500],["1201",346415,345000],["1202",326333,325000],["1203",376538,345000],["1204",356456,325000],["1205",326333,325000],["1207",356456,325000],["1208",376538,345000],["1301",348925,347500],["1302",328843,327500],["1303",379048,347500],["1304",358966,327500],["1305",328843,327500],["1306",348925,347500],["1307",358966,327500],["1308",379048,347500],["1401",351435,350000],["1402",331353,330000],["1403",381558,350000],["1404",361476,330000],["1405",331353,330000],["1406",351435,350000],["1407",361476,330000],["1408",381558,350000]]}}},"florenca":{"blocos":{"Bloco A":{"d":"2026-10-31","u":[["101",394611,372500],["102",384570,364000],["105",384570,364000],["106",394611,372500],["405",326333,310000],["502",336374,320000],["503",343402,338000],["504",343402,338000],["603",346415,338000],["706",354447,338000],["801",357460,338000],["803",357460,338000],["901",360472,338000],["902",341394,325000],["903",360472,338000],["906",360472,338000],["1001",371517,338000],["1003",371517,338000],["1004",371517,338000],["1005",334365,325000],["1006",371517,338000],["1101",374529,338000],["1102",337378,329000],["1103",374529,338000],["1104",374529,338000],["1105",337378,329000],["1106",374529,338000],["1201",377542,338000],["1202",340390,329000],["1203",377542,338000],["1204",377542,338000],["1205",340390,329000],["1206",377542,338000],["1301",379550,338000],["1302",342398,329000],["1303",379550,338000],["1304",379550,338000],["1305",342398,329000],["1306",379550,338000],["1401",381558,338000],["1402",345410,329000],["1403",381558,338000],["1404",381558,338000],["1405",345410,329000],["1406",381558,338000]]}}},"milao":{"blocos":{"Bloco 01":{"d":"2026-10-31","u":[["108",413585,381896],["1101",421860,394137],["1103",421860,394137],["1108",409568,381896],["1201",410572,381896],["1203",410572,381896],["1208",410572,381896],["1301",411577,381896],["1303",411577,381896],["1304",360974,342270],["1306",411577,381896],["1308",411577,381896],["1401",412581,381896],["1403",412581,381896],["1501",425876,394137],["1503",413585,381896],["1508",413585,381896]]},"Bloco 02":{"d":"2026-10-31","u":[["101",395615,377260],["102",413689,382260],["103",338392,337010],["104",373525,360250],["105",373525,342010],["106",396620,365250],["201",373023,388214],["203",350933,346239],["205",350933,346239],["206",360974,370475],["301",374027,388214],["302",374027,388214],["304",361978,370475],["305",351937,346239],["306",361978,370475],["401",375031,375260],["406",362982,358250],["501",376035,375260],["502",376035,375260],["504",363986,358250],["506",363986,358250],["601",377040,378260],["603",354949,338010],["604",364990,361250],["701",378044,378260],["702",378044,378250],["704",365994,361250],["705",355953,338010],["706",365994,361250],["801",419609,393896],["802",419609,393896],["803",356958,341010],["804",366999,354250],["805",356958,341010],["806",366999,354250],["901",420613,393896],["902",420613,393896],["903",357962,341010],["904",368003,354250],["905",357962,341010],["906",368003,354250],["1001",381056,384250],["1002",381056,384250],["1003",358966,344010],["1005",358966,344010],["1006",369007,367250],["1101",382060,384260],["1102",382060,384260],["1103",359970,344010],["1104",370011,367250],["1105",359970,344010],["1106",370011,367250],["1201",423626,393896],["1202",423626,393896],["1203",360974,346010],["1204",411577,381896],["1205",360974,346010],["1206",411577,381896],["1301",424630,393896],["1302",424630,393896],["1303",361978,346010],["1304",412581,381896],["1305",361978,346010],["1306",412581,381896],["1401",425634,393896],["1402",437925,406137],["1403",362982,346010],["1404",425876,394137],["1405",362982,346010],["1406",413585,381896]]}}},"veneto":{"blocos":{"Bloco 01":{"d":"2026-10-31","u":[["102",411681,367000],["1006",411681,385000]]},"Bloco 02":{"d":"2026-10-31","u":[["104",400134,372000],["105",395113,371000],["107",400134,371000],["108",416199,395000],["202",358464,357000],["206",381558,380000],["208",381558,380000],["301",381558,380000],["305",357460,356000],["306",381558,380000],["308",381558,380000],["402",358464,357000],["403",381558,380000],["406",381558,380000],["408",381558,380000],["503",381558,380000],["508",381558,380000],["605",357460,356000],["608",381558,380000],["703",385072,380000],["708",385072,356000],["803",393105,380000],["806",396117,380000],["807",357460,356000],["902",358464,357000],["903",381558,380000],["905",357460,356000],["908",396620,380000],["1001",406661,385000],["1002",359468,357000],["1003",403648,380000],["1005",357460,356000],["1008",403648,380000],["1101",411681,385000],["1102",358464,357000],["1103",406661,380000],["1108",408669,385000],["1203",408669,385000],["1206",414693,385000],["1208",390093,344000]]}}}}}</script>
@@ -571,7 +623,7 @@ function writeState(s){MONEY.forEach(k=>$(k).value=s[k]?num(s[k]):"");TEXT.forEa
 /* cálculo — mesma lógica da planilha */
 function compute(s){
   const e=empById(s.emp);
-  const docVal=docParc?Math.round(s.tabela*CONF.docPct*100)/100:0;
+  const docVal=s.docParc?Math.round(s.tabela*CONF.docPct*100)/100:0;
   const dif=s.tabela-s.avaliacao;
   const finSub=s.financ+s.subsidio;
   const entrada=s.avaliacao-finSub-s.fgts-s.sinal+dif+docVal;
@@ -595,15 +647,15 @@ function compute(s){
     rows.push({d:inM[0].date,m,ent,ref,tot:ent+ref,pos:endObra!=null&&inM[0].date>entrega,keys:false})});
   const firstPos=rows.find(x=>x.pos);if(firstPos)firstPos.keys=true;
   // alertas com sugestão de ajuste
-  const al=[];const maxM=avalista?e.maxMensais:Math.min(36,e.maxMensais);
-  if(s.tabela>0&&parcTotal>e.risco){const exc=entrada-e.risco*s.tabela;al.push({st:"bad",t:"Parcelamento acima do limite",d:`${pct(parcTotal)} da tabela; o máximo em ${e.nome} é ${pct(e.risco,0)}.`,fix:`Aumente o sinal em ${brl0(Math.ceil(exc))}`+(docParc&&docVal>0?` ou deixe a documentação (${brl0(docVal)}) por conta do cliente.`:".")})}
+  const al=[];const maxM=s.avalista?e.maxMensais:Math.min(36,e.maxMensais);
+  if(s.tabela>0&&parcTotal>e.risco){const exc=entrada-e.risco*s.tabela;al.push({st:"bad",t:"Parcelamento acima do limite",d:`${pct(parcTotal)} da tabela; o máximo em ${e.nome} é ${pct(e.risco,0)}.`,fix:`Aumente o sinal em ${brl0(Math.ceil(exc))}`+(s.docParc&&docVal>0?` ou deixe a documentação (${brl0(docVal)}) por conta do cliente.`:".")})}
   if(s.nMensais>maxM)al.push({st:"bad",t:"Mensais acima do limite",d:`${s.nMensais} mensais; o máximo é ${maxM}${avalista?"":" sem avalista"}.`,fix:`Reduza para ${maxM} mensais.`});
   if(s.nRef>e.maxReforcos)al.push({st:"bad",t:"Reforços acima do limite",d:`${s.nRef} reforços; o máximo em ${e.nome} é ${e.maxReforcos}.`,fix:`Reduza para ${e.maxReforcos} reforços.`});
   if(s.tabela>0&&entrada<0)al.push({st:"bad",t:"Não sobra entrada para parcelar",d:`Financiamento, FGTS e sinal passam do valor do imóvel em ${brl(-entrada)}.`,fix:"Confira o financiamento e o FGTS na etapa 2, ou reduza o sinal."});
   else if(s.nMensais>0&&mensal<0)al.push({st:"bad",t:"Reforços maiores que a entrada",d:"A mensal ficou negativa.",fix:"Diminua a quantidade ou o valor dos reforços."});
   if(e.sinalMin>0&&s.sinal<e.sinalMin)al.push({st:"bad",t:"Sinal abaixo do mínimo",d:`Em ${e.nome} o sinal mínimo é ${brl0(e.sinalMin)}.`,fix:`Aumente o sinal para pelo menos ${brl0(e.sinalMin)}.`});
-  if(!avalista&&s.renda>0&&mensal>s.renda*.3)al.push({st:"bad",t:"Mensal acima de 30% da renda",d:`Sem avalista a mensal pode ser até ${brl(s.renda*.3)}.`,fix:"Aumente o sinal ou os reforços, ou inclua um avalista."});
-  if(unitGone)al.push({st:"bad",t:"Unidade fora da tabela",d:`A unidade ${unitGone} não está mais disponível na tabela atual.`,fix:"Escolha outra unidade na etapa 2."});
+  if(!s.avalista&&s.renda>0&&mensal>s.renda*.3)al.push({st:"bad",t:"Mensal acima de 30% da renda",d:`Sem avalista a mensal pode ser até ${brl(s.renda*.3)}.`,fix:"Aumente o sinal ou os reforços, ou inclua um avalista."});
+  if(unitGone&&!s.calc)al.push({st:"bad",t:"Unidade fora da tabela",d:`A unidade ${unitGone} não está mais disponível na tabela atual.`,fix:"Escolha outra unidade na etapa 2."});
   const bad=al.some(a=>a.st==="bad");
   return{e,docVal,dif,finSub,entrada,totRef,mensal,parcTotal,pro,proR,mPos,rPos,mens,refs,rows,entrega,dS,dM,dR,al,bad,maxM};
 }
@@ -828,8 +880,8 @@ function loadDraft(){try{const d=JSON.parse(localStorage.getItem("fluxo-draft-v2
 
 /* condições por obra (editores) */
 let db=null,canAdmin=false,condEdit=false,condDraft=null;
-function fillEmp(){const cur=$("emp").value;$("emp").innerHTML=`<option value="" disabled>Escolha o empreendimento</option>`+CONF.empreendimentos.map(e=>`<option value="${e.id}">${esc(e.nome)}</option>`).join("");$("emp").value=cur&&CONF.empreendimentos.some(e=>e.id===cur)?cur:""}
-function showView(v){$("simView").hidden=v!=="sim";$("condView").hidden=v!=="cond";$("tabView").hidden=v!=="tab";$("hCond").textContent=v==="cond"?"Voltar ao simulador":"Condições por obra";$("hTab").textContent=v==="tab"?"Voltar ao simulador":"Atualizar tabelas";if(v==="sim")$("dock").style.removeProperty("display");else $("dock").style.display="none"}
+function fillEmp(){const cur=$("emp").value;$("emp").innerHTML=`<option value="" disabled>Escolha o empreendimento</option>`+CONF.empreendimentos.map(e=>`<option value="${e.id}">${esc(e.nome)}</option>`).join("");$("emp").value=cur&&CONF.empreendimentos.some(e=>e.id===cur)?cur:"";if(typeof cFillEmp==="function")cFillEmp()}
+function showView(v){$("simView").hidden=v!=="sim";$("calcView").hidden=v!=="calc";$("modesWrap").hidden=v!=="sim"&&v!=="calc";document.querySelectorAll("#modes button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mode===v));$("condView").hidden=v!=="cond";$("tabView").hidden=v!=="tab";$("hCond").textContent=v==="cond"?"Voltar ao simulador":"Condições por obra";$("hTab").textContent=v==="tab"?"Voltar ao simulador":"Atualizar tabelas";if(v==="sim")$("dock").style.removeProperty("display");else $("dock").style.display="none"}
 function showSim(){showView("sim")}
 $("hCond").onclick=()=>{if($("condView").hidden){showView("cond");renderCond()}else showSim()};
 $("hTab").onclick=()=>{if($("tabView").hidden){showView("tab");renderTabView()}else showSim()};
@@ -971,6 +1023,63 @@ async function publicarTab(){
   }catch(e){const c=e&&e.code;if(c==="conflict")return;
     toast(c==="not_writer"||c==="not_granted"?"Sua conta não pode publicar nesta página":"Não foi possível publicar"+(c?" ("+c+")":""));b.disabled=false;b.textContent="Publicar para os corretores"}
 }
+
+/* calculadora: simulação rápida; usa o mesmo cálculo da simulação */
+let cav=true,cdoc=true,csel={b:"",u:""},cRefTouched=false,cConfirm=false;
+function cFillEmp(){const cur=$("c_emp").value;$("c_emp").innerHTML='<option value="" disabled>Escolha o empreendimento</option>'+CONF.empreendimentos.map(e=>'<option value="'+e.id+'">'+esc(e.nome)+'</option>').join("");$("c_emp").value=cur&&CONF.empreendimentos.some(e=>e.id===cur)?cur:"";cSyncUnit()}
+function cSyncUnit(){const id=$("c_emp").value,bl=blocosOf(id);
+  $("c_fBloco").hidden=bl.length<2;$("c_fUnid").hidden=!bl.length;
+  if(bl.length===1)csel.b=bl[0];if(csel.b&&!bl.includes(csel.b))csel={b:"",u:""};
+  $("c_bloco").innerHTML='<option value="">Escolha o bloco</option>'+bl.map(b=>'<option>'+esc(b)+'</option>').join("");$("c_bloco").value=csel.b;
+  const us=csel.b&&TAB.obras[id]?TAB.obras[id].blocos[csel.b].u:[];
+  $("c_unid").innerHTML='<option value="">'+(csel.b?us.length+" disponíveis":"Escolha o bloco primeiro")+'</option>'+us.map(x=>'<option value="'+esc(x[0])+'">'+esc(x[0])+" · "+brl0(x[1])+"</option>").join("");
+  if(csel.u&&!unitOf(id,csel.b,csel.u))csel.u="";$("c_unid").value=csel.u}
+function cState(){const g=k=>parseMoney($("c_"+k).value),un=csel.u?csel.u+" "+csel.b:"";
+  return{...blank(),emp:$("c_emp").value,unidade:un,renda:g("renda"),tabela:g("tabela"),avaliacao:g("avaliacao")||g("tabela"),financ:g("financ"),fgts:g("fgts"),sinal:g("sinal"),vRef:g("vRef"),nMensais:Math.max(0,parseInt($("c_nMensais").value)||0),nRef:Math.max(0,parseInt($("c_nRef").value)||0),avalista:cav,docParc:cdoc,refTouched:cRefTouched,sel:{...csel},manual:!csel.u,calc:true}}
+function cRender(){
+  if(!cRefTouched){const r0=parseMoney($("c_renda").value);$("c_vRef").value=r0?num(Math.round(r0/2*100)/100):""}
+  const s=cState(),r=compute(s),e=r.e,ok=s.tabela>0&&!!s.emp;
+  $("c_fVRef").hidden=!s.nRef;
+  $("c_sinalHint").textContent=e.sinalMin&&s.emp?"Mínimo de "+brl0(e.sinalMin)+" neste empreendimento":"";
+  $("c_refMax").textContent="Máximo "+e.maxReforcos;
+  $("c_vRefHint").textContent=s.renda?"Sugerido: "+brl(s.renda/2)+" (50% da renda)":"";
+  $("c_avSub").textContent="Até "+e.maxMensais+" mensais.";
+  const qs=[];for(let q=12;q<=r.maxM;q+=12)qs.push(q);if(qs[qs.length-1]!==r.maxM)qs.push(r.maxM);
+  $("c_quick").innerHTML=qs.map(q=>'<button type="button" data-cq="'+q+'" aria-pressed="'+(q===s.nMensais)+'">'+q+"×</button>").join("");
+  $("c_chips").innerHTML=s.emp?'<span class="chip">Entrega <b>'+fmtD(r.entrega)+'</b></span><span class="chip">Parcelamento até <b>'+pct(e.risco,0)+'</b> da tabela</span><span class="chip">Até <b>'+r.maxM+'</b> mensais</span><span class="chip">Até <b>'+e.maxReforcos+'</b> reforços</span>':"";
+  document.querySelectorAll("[data-cdoc]").forEach(b=>b.setAttribute("aria-pressed",(b.dataset.cdoc==="1")===cdoc));
+  document.querySelectorAll("[data-cav]").forEach(b=>b.setAttribute("aria-pressed",(b.dataset.cav==="1")===cav));
+  const alerts=r.al.map(a=>'<div class="alert '+a.st+'"><b>'+esc(a.t)+"</b>"+esc(a.d)+'<span class="fix">→ '+esc(a.fix)+"</span></div>").join("")||'<div class="alert ok"><b>Tudo dentro das regras</b>Pode levar para a simulação.</div>';
+  let h='<div class="card"><div class="card-h"><h3>Resultado</h3>'+(ok?(r.bad?'<span class="verdict bad">'+(r.al.length===1?"1 ajuste":r.al.length+" ajustes")+"</span>":'<span class="verdict ok">Dentro das regras</span>'):'<span class="verdict">Em preenchimento</span>')+"</div>";
+  if(!ok)h+='<div class="empty-live">Escolha o <b>empreendimento</b> e informe o <b>valor de tabela</b> (ou escolha a unidade) para ver a mensal.</div>';
+  else{const lim=e.risco,w=Math.min(100,r.parcTotal/(lim*1.4)*100),mk=100/1.4;
+    h+='<div class="big"><span>Mensal com a Girollar</span><b>'+brl(r.mensal)+"</b><small>"+s.nMensais+"x a partir de "+fmtD(r.dM)+'</small></div><div class="rows"><span>Entrada a parcelar</span><span>'+brl(r.entrada)+"</span><span>Sinal</span><span>"+brl(s.sinal)+"</span><span>Reforços</span><span>"+(s.nRef?s.nRef+"× "+brl0(s.vRef):"nenhum")+"</span><span>Documentação</span><span>"+(r.docVal?brl0(r.docVal):"Sem")+"</span><span>Pró-soluto</span><span>"+pct(r.pro)+' da tabela</span></div><div class="meter '+(r.parcTotal>lim?"bad":"")+'" style="padding-top:12px"><div class="t"><span>Parcelamento total <b style="color:var(--fg)">'+pct(r.parcTotal)+"</b></span><span>limite "+pct(lim,0)+'</span></div><div class="track"><i style="width:'+w+'%"></i><u style="left:'+mk+'%"></u></div></div><div class="alerts" style="padding-top:0">'+alerts+"</div>"}
+  h+='<div class="go"><button class="btn primary" type="button" id="cGo"'+(ok?"":" disabled")+'>Usar na simulação</button><span class="small muted">Leva estes valores para uma nova simulação, onde você coloca o cliente e envia.</span></div></div>';
+  $("cRes").innerHTML=h;
+  $("cBarVal").textContent=ok?brl(r.mensal)+(s.nMensais?" × "+s.nMensais:""):"—";
+  $("cBarLbl").textContent=ok?(r.bad?"⚠ "+r.al[0].t+(r.al.length>1?" (+"+(r.al.length-1)+")":""):"✓ Dentro das regras"):"Mensal";
+  $("cBarInfo").className="c1 "+(ok?(r.bad?"bad":"ok"):"");$("cBarGo").disabled=!ok;
+}
+function cImport(btn){
+  const s=cState();if(!(s.tabela>0&&s.emp))return;
+  if(!cConfirm&&readState().cliente){cConfirm=true;const old=btn.textContent;btn.textContent="Toque de novo para substituir a simulação atual";setTimeout(()=>{cConfirm=false;btn.textContent=old},3500);return}
+  cConfirm=false;const keep={corretor:$("corretor").value,imob:$("imob").value};
+  const {calc,...base}=s;writeState({...blank(),...keep,...base});
+  document.querySelectorAll(".f.req").forEach(f=>f.dataset.tried="");showSim();go(0);toast("Valores da calculadora levados para uma nova simulação")}
+$("c_emp").addEventListener("change",()=>{csel={b:"",u:""};cSyncUnit();cRender()});
+$("c_bloco").addEventListener("change",()=>{csel={b:$("c_bloco").value,u:""};cSyncUnit();cRender()});
+$("c_unid").addEventListener("change",()=>{csel.u=$("c_unid").value;const un=csel.u?unitOf($("c_emp").value,csel.b,csel.u):null;if(un){$("c_tabela").value=num(un[1]);$("c_avaliacao").value=num(un[2])}cRender()});
+$("calcView").addEventListener("input",ev=>{const i=ev.target;if(i.id==="c_vRef")cRefTouched=true;if(i.id==="c_tabela"||i.id==="c_avaliacao"){csel.u="";$("c_unid").value=""}cRender()});
+$("calcView").addEventListener("click",ev=>{const t=ev.target,b=t.closest("[data-cstp]"),q=t.closest("[data-cq]"),d=t.closest("[data-cdoc]"),a=t.closest("[data-cav]");
+  if(b){const r=compute(cState()),i=$(b.dataset.cstp),dd=+b.dataset.d,mx=b.dataset.cstp==="c_nMensais"?r.maxM:r.e.maxReforcos,v=(parseInt(i.value)||0)+dd;i.value=Math.max(+i.min||0,dd>0?Math.min(mx,v):v);cRender()}
+  else if(q){$("c_nMensais").value=q.dataset.cq;cRender()}
+  else if(d){cdoc=d.dataset.cdoc==="1";cRender()}
+  else if(a){cav=a.dataset.cav==="1";cRender()}
+  else if(t.id==="cGo")cImport(t)});
+$("cBarGo").onclick=()=>cImport($("cBarGo"));
+$("cBarInfo").onclick=()=>$("cRes").scrollIntoView({behavior:"smooth",block:"start"});
+document.querySelectorAll("[data-cmoney]").forEach(i=>i.addEventListener("blur",()=>{i.value=i.value.trim()===""?"":num(parseMoney(i.value))}));
+document.querySelectorAll("#modes button").forEach(b=>b.onclick=()=>{if(b.dataset.mode==="calc"){showView("calc");cRender()}else showSim()});
 
 /* início */
 fillEmp();
